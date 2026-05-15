@@ -1,144 +1,504 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>XPH Dashboard</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>XPH 一键领取</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<style>.spin{animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.fade-in{animation:fadeIn 0.3s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1}}.btn-disabled{opacity:.4;cursor:not-allowed;pointer-events:none}</style>
+<style>
+  .spin{animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+  .fade-in{animation:fadeIn 0.3s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .btn-disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+  .pill{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600}
+  .pill-ok{background:#d1fae5;color:#065f46}
+  .pill-pend{background:#fef3c7;color:#92400e}
+  .pill-err{background:#fee2e2;color:#991b1b}
+  .pill-info{background:#dbeafe;color:#1e40af}
+  .pill-zero{background:#f3f4f6;color:#6b7280}
+  #log::-webkit-scrollbar{width:6px}
+  #log::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
 </head>
 <body class="bg-gray-50 min-h-screen text-gray-800">
+
 <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
-<div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-<div class="flex items-center gap-3"><div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600"></div><span class="font-bold text-lg tracking-tight">XPH Dashboard</span></div>
-<div class="flex items-center gap-3"><span id="netBadge" class="hidden text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">Polygon</span><span id="addrLabel" class="hidden text-xs font-mono bg-gray-100 px-3 py-1.5 rounded-full text-gray-600"></span><button id="connectBtn" onclick="connectWallet()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all">Connect OKX Wallet</button></div>
-</div>
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600"></div>
+      <span class="font-bold text-lg tracking-tight">XPH 一键领取</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="netBadge" class="hidden text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">Polygon</span>
+      <span id="addrLabel" class="hidden text-xs font-mono bg-gray-100 px-3 py-1.5 rounded-full text-gray-600"></span>
+      <button id="connectBtn" onclick="connectWallet()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all">连接 OKX 钱包</button>
+    </div>
+  </div>
 </header>
+
 <main class="max-w-6xl mx-auto px-5 py-8">
-<div id="noWallet" class="flex flex-col items-center justify-center py-32 text-center">
-<div class="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-4xl mb-5">🔗</div>
-<h2 class="text-2xl font-bold mb-2">Connect your OKX Wallet</h2>
-<p class="text-gray-500 mb-6 text-sm">Auto-loads bond &amp; energy data after connecting</p>
-<button onclick="connectWallet()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-xl transition">Connect OKX Wallet</button>
-</div>
-<div id="dashboard" class="hidden fade-in">
-<div class="flex items-center justify-between mb-6">
-<p class="text-sm text-gray-500">Address: <span id="fullAddr" class="font-mono text-gray-700"></span></p>
-<button onclick="loadAllData()" id="refreshBtn" class="flex items-center gap-1.5 text-sm border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 rounded-lg transition text-gray-600"><svg id="refreshIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Refresh</button>
-</div>
-<section class="mb-8"><div class="flex items-center gap-2 mb-4"><span class="w-1.5 h-5 rounded bg-indigo-500"></span><h2 class="font-semibold text-base">Long-term Liquidity Bonds</h2></div><div id="bondsWrap" class="space-y-4"></div></section>
-<section><div class="flex items-center gap-2 mb-4"><span class="w-1.5 h-5 rounded bg-amber-400"></span><h2 class="font-semibold text-base">Energy Value (Staking Records)</h2></div><div id="energyWrap"></div></section>
-</div>
+
+  <div id="noWallet" class="flex flex-col items-center justify-center py-32 text-center">
+    <div class="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-4xl mb-5">🔗</div>
+    <h2 class="text-2xl font-bold mb-2">请先连接 OKX 钱包</h2>
+    <p class="text-gray-500 mb-6 text-sm">连接后会自动扫描各项可领数额</p>
+    <button onclick="connectWallet()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-xl transition">连接 OKX 钱包</button>
+  </div>
+
+  <div id="dashboard" class="hidden fade-in space-y-6">
+
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-gray-500">当前地址：<span id="fullAddr" class="font-mono text-gray-700"></span></p>
+      <button onclick="scanAll()" id="refreshBtn" class="flex items-center gap-1.5 text-sm border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 rounded-lg transition text-gray-600">
+        <svg id="refreshIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        刷新
+      </button>
+    </div>
+
+    <!-- 汇总表 -->
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-sm">可领取概览</h2>
+        <span id="scanStatus" class="text-xs text-gray-400">未扫描</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-gray-400 uppercase">
+            <tr>
+              <th class="py-2 px-4 text-left font-medium">类别</th>
+              <th class="py-2 px-4 text-right font-medium">条目数</th>
+              <th class="py-2 px-4 text-right font-medium">非零条数</th>
+              <th class="py-2 px-4 text-right font-medium">可领合计 (XPH)</th>
+            </tr>
+          </thead>
+          <tbody id="sumTbody" class="divide-y divide-gray-100">
+            <tr><td colspan="4" class="py-5 text-center text-gray-400">等待扫描…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 模块 1 -->
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100">
+        <h2 class="font-semibold text-sm">模块 1 · 奖励类</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button onclick="claimGroup('mod1_bond_int', ['bond360_int','bond600_int'])" class="js-mod-btn px-4 py-3 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-medium text-sm transition text-left">
+          一键领取 Bond360 / Bond600 奖励
+          <span class="block text-xs text-amber-600/70 mt-1" data-summary="mod1_bond_int">—</span>
+        </button>
+        <button onclick="claimGroup('mod1_stk_extra', ['stk360_ext','stk600_ext'])" class="js-mod-btn px-4 py-3 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-medium text-sm transition text-left">
+          一键领取 Stk360 / Stk600 额外奖励
+          <span class="block text-xs text-blue-600/70 mt-1" data-summary="mod1_stk_extra">—</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 模块 2 -->
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100">
+        <h2 class="font-semibold text-sm">模块 2 · 本金 + 爆快</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button onclick="claimGroup('mod2_bond360', ['bond360_pri'])" class="js-mod-btn px-4 py-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-medium text-sm transition text-left">
+          一键领取 Bond360 本金
+          <span class="block text-xs text-indigo-600/70 mt-1" data-summary="mod2_bond360">—</span>
+        </button>
+        <button onclick="claimGroup('mod2_bond600', ['bond600_pri'])" class="js-mod-btn px-4 py-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-medium text-sm transition text-left">
+          一键领取 Bond600 本金
+          <span class="block text-xs text-indigo-600/70 mt-1" data-summary="mod2_bond600">—</span>
+        </button>
+        <button onclick="claimGroup('mod2_energy', ['energy_pri','energy_int'])" class="js-mod-btn px-4 py-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-medium text-sm transition text-left">
+          一键领取 Energy 本金 + 利息
+          <span class="block text-xs text-emerald-600/70 mt-1" data-summary="mod2_energy">—</span>
+        </button>
+        <button onclick="claimGroup('mod2_stk360', ['stk360_pri','stk360_burst'])" class="js-mod-btn px-4 py-3 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-medium text-sm transition text-left">
+          一键领取 Stk360 本金 + 爆快
+          <span class="block text-xs text-purple-600/70 mt-1" data-summary="mod2_stk360">—</span>
+        </button>
+        <button onclick="claimGroup('mod2_stk600', ['stk600_pri','stk600_burst'])" class="js-mod-btn px-4 py-3 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-medium text-sm transition text-left md:col-span-2">
+          一键领取 Stk600 本金 + 爆快
+          <span class="block text-xs text-purple-600/70 mt-1" data-summary="mod2_stk600">—</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 日志 -->
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-sm">执行日志</h2>
+        <button onclick="document.getElementById('log').innerHTML=''" class="text-xs text-gray-400 hover:text-gray-600">清空</button>
+      </div>
+      <div id="log" class="h-64 overflow-y-auto px-5 py-3 text-xs font-mono space-y-1 text-gray-600"></div>
+    </section>
+
+  </div>
+
 </main>
+
 <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm text-white font-medium shadow-2xl z-50 transition-all duration-300 opacity-0 pointer-events-none whitespace-nowrap"></div>
+
 <script>
-const POLYGON_ID='0x89';
-const BOND_CONTRACTS=[{label:'600-day Bond',addr:'0x9b081323d11a2a61f43701a4007a4a98357c57a1'},{label:'360-day Bond',addr:'0x6c0ac888b075c6b5141cbc1da6170b6686afd07d'}];
-const ENERGY_ADDR='0x25a4b842cb200e9148ff5a11babf80488c8d8b07';
-const SXPH_ADDR='0x99a57e6c8558bc6689f894e068733adf83c19725';
-const BOND_ABI=['function getBondInfoData(address) view returns (tuple(address owner,uint256 id,uint256 payout,uint256 vesting,uint256 lastBlock,uint256 pricePaid)[])', 'function pendingPayoutFor(address,uint256,bool) view returns (uint256)'];
-let provider,signer,userAddr;
-async function connectWallet(){
-const okx=window.okxwallet||window.ethereum;
-if(!okx){toast('Please install OKX Wallet','err');return;}
-try{
-provider=new ethers.providers.Web3Provider(okx,'any');
-await provider.send('eth_requestAccounts',[]);
-try{await okx.request({method:'wallet_switchEthereumChain',params:[{chainId:POLYGON_ID}]});}
-catch(e){if(e.code===4902)await okx.request({method:'wallet_addEthereumChain',params:[{chainId:POLYGON_ID,chainName:'Polygon Mainnet',nativeCurrency:{name:'MATIC',symbol:'MATIC',decimals:18},rpcUrls:['https://polygon-rpc.com','https://1rpc.io/matic'],blockExplorerUrls:['https://polygonscan.com']}]});}
-provider=new ethers.providers.Web3Provider(okx,'any');signer=provider.getSigner();userAddr=await signer.getAddress();
-document.getElementById('addrLabel').textContent=userAddr.slice(0,6)+'...'+userAddr.slice(-4);
-document.getElementById('addrLabel').classList.remove('hidden');
-document.getElementById('netBadge').classList.remove('hidden');
-const btn=document.getElementById('connectBtn');btn.textContent='Connected';btn.disabled=true;
-btn.className=btn.className.replace('bg-indigo-600 hover:bg-indigo-700','bg-gray-300 cursor-default');
-document.getElementById('noWallet').classList.add('hidden');
-document.getElementById('dashboard').classList.remove('hidden');
-document.getElementById('fullAddr').textContent=userAddr;
-okx.on('accountsChanged',()=>location.reload());okx.on('chainChanged',()=>location.reload());
-await loadAllData();
-}catch(e){toast('Connection failed: '+(e.message||e),'err');}
+// ===================== 常量 =====================
+const POLYGON_ID = '0x89';
+const DECIMALS   = 9;             // XPH 9 位小数
+const MIN_THRESH = ethers.BigNumber.from('1000000'); // 0.001 XPH = 1e6 wei
+
+const BOND360 = '0x6c0ac888b075c6b5141cbc1da6170b6686afd07d';
+const BOND600 = '0x9b081323d11a2a61f43701a4007a4a98357c57a1';
+const STK360  = '0x6652d0f0d7aec5070804e55b7023d32b9bbc4190';
+const STK600  = '0x8ca97f41d2c81af050656e8ad0cf543820a24504';
+const ENERGY  = '0x25a4b842cb200e9148ff5a11babf80488c8d8b07';
+const SXPH    = '0x99a57e6c8558bc6689f894e068733adf83c19725';
+
+// 类别元信息
+const CAT_META = {
+  bond360_pri:   { label: 'Bond360 本金',     contract: BOND360 },
+  bond360_int:   { label: 'Bond360 奖励',     contract: BOND360 },
+  bond600_pri:   { label: 'Bond600 本金',     contract: BOND600 },
+  bond600_int:   { label: 'Bond600 奖励',     contract: BOND600 },
+  energy_pri:    { label: 'Energy 本金',      contract: ENERGY  },
+  energy_int:    { label: 'Energy 利息',      contract: ENERGY  },
+  stk360_pri:    { label: 'Stk360 本金',      contract: STK360  },
+  stk360_burst:  { label: 'Stk360 爆快',      contract: STK360  },
+  stk360_ext:    { label: 'Stk360 额外奖励',  contract: STK360  },
+  stk600_pri:    { label: 'Stk600 本金',      contract: STK600  },
+  stk600_burst:  { label: 'Stk600 爆快',      contract: STK600  },
+  stk600_ext:    { label: 'Stk600 额外奖励',  contract: STK600  },
+};
+
+// ===================== 状态 =====================
+let provider, signer, userAddr;
+let scanData = {};   // cat -> [{idx, amount, calldata}]
+let scanning = false;
+let claiming = false;
+
+// ===================== 工具 =====================
+function enc(sel, types, vals) {
+  return sel + ethers.utils.defaultAbiCoder.encode(types, vals).slice(2);
 }
-async function loadAllData(){
-document.getElementById('bondsWrap').innerHTML='';document.getElementById('energyWrap').innerHTML='';
-const icon=document.getElementById('refreshIcon');icon.classList.add('spin');
-await Promise.all([loadBonds(provider),loadEnergy(provider)]);
-icon.classList.remove('spin');
+function fmt(v) {
+  try {
+    const n = parseFloat(ethers.utils.formatUnits(v || 0, DECIMALS));
+    return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  } catch { return '—'; }
 }
-async function loadBonds(rp){
-const wrap=document.getElementById('bondsWrap');
-for(const bc of BOND_CONTRACTS){
-const card=mkCard(bc.label,bc.addr,bc.addr);wrap.appendChild(card);
-try{
-const c=new ethers.Contract(bc.addr,BOND_ABI,rp);
-const bonds=await c.getBondInfoData(userAddr);
-if(!bonds.length){setBody(bc.addr,emptyRow('No bond records for this contract'));continue;}
-const rows=await Promise.all(bonds.map(async(b,i)=>({i,claimable:await c.pendingPayoutFor(userAddr,i,false)})));
-renderBonds(bc.addr,rows);
-}catch{setBody(bc.addr,emptyRow('Contract incompatible or no data',true));}
+function shortHash(h) { return h.slice(0, 10) + '…' + h.slice(-8); }
+function log(html, cls='') {
+  const el = document.getElementById('log');
+  const t = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = `<span class="text-gray-400">${t}</span> ${html}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
 }
-}
-function renderBonds(addr,rows){
-const tbody=rows.map(r=>`<tr class="border-t border-gray-100 hover:bg-gray-50 transition"><td class="py-3 px-4 font-mono text-sm text-gray-500">#${r.i}</td><td class="py-3 px-4 text-right text-sm font-semibold text-indigo-600">${fmt(r.claimable)}</td><td class="py-3 px-4 text-right"><button onclick="txBondInterest('${addr}',${r.i})" class="mr-1.5 px-3 py-1 text-xs rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 font-medium transition">Claim Interest</button><button onclick="txBondClaim('${addr}',${r.i})" class="px-3 py-1 text-xs rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 font-medium transition">Claim</button></td></tr>`).join('');
-setBody(addr,`<table class="w-full"><thead><tr class="text-xs text-gray-400 uppercase"><th class="py-2 px-4 text-left font-medium">Bond</th><th class="py-2 px-4 text-right font-medium">Claimable (XPH)</th><th class="py-2 px-4 text-right font-medium">Actions</th></tr></thead><tbody>${tbody}</tbody></table>`);
-}
-function enc(sel,types,vals){return sel+ethers.utils.defaultAbiCoder.encode(types,vals).slice(2);}
-async function loadEnergy(rp){
-const wrap=document.getElementById('energyWrap');
-const card=mkCard('Energy Contract',ENERGY_ADDR,'energy');wrap.appendChild(card);
-try{
-const rc=(to,data)=>rp.call({to,data});
-const count=ethers.BigNumber.from(await rc(ENERGY_ADDR,enc('0x98dc8dea',['address'],[userAddr]))).toNumber();
-if(count===0){setBody('energy',emptyRow('No energy records'));return;}
-const records=[];
-for(let off=0;off<count;off+=10){
-const lim=Math.min(10,count-off);
-const raw=await rc(ENERGY_ADDR,enc('0x297a52d2',['address','uint256','uint256'],[userAddr,off,lim]));
-const body=raw.slice(2+64+64);
-for(let i=0;i<lim;i++){
-const slot=body.slice(i*512,(i+1)*512);
-const claimed=ethers.BigNumber.from('0x'+slot.slice(0,64));
-const id='0x'+slot.slice(64,128);const idx=off+i;
-const principal=ethers.BigNumber.from(await rc(ENERGY_ADDR,enc('0xda709204',['address','uint256'],[userAddr,idx])));
-const pending=ethers.BigNumber.from(await rc(SXPH_ADDR,enc('0x7965d56d',['bytes32'],[id])));
-const interest=pending.gte(claimed)?pending.sub(claimed):ethers.BigNumber.from(0);
-records.push({idx,id,principal,interest});
-}
-}
-renderEnergy(records);
-}catch(e){setBody('energy',emptyRow('Load failed: '+e.message.slice(0,60),true));}
-}
-function renderEnergy(records){
-const tbody=records.map(r=>`<tr class="border-t border-gray-100 hover:bg-gray-50 transition"><td class="py-3 px-4 font-mono text-sm text-gray-500">#${r.idx}</td><td class="py-3 px-4 text-right text-sm font-semibold text-green-600">${fmt(r.principal)}</td><td class="py-3 px-4 text-right text-sm font-semibold text-amber-600">${fmt(r.interest)}</td><td class="py-3 px-4 text-right"><button onclick="txEnergyPrincipal(${r.idx})" class="mr-1.5 px-3 py-1 text-xs rounded-lg bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 font-medium transition${r.principal.gt(0)?'':' btn-disabled'}">Claim Principal</button><button onclick="txEnergyInterest(${r.idx},'${r.interest.toString()}')" class="px-3 py-1 text-xs rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 font-medium transition">Claim Interest</button></td></tr>`).join('');
-setBody('energy',`<table class="w-full"><thead><tr class="text-xs text-gray-400 uppercase"><th class="py-2 px-4 text-left font-medium">Record</th><th class="py-2 px-4 text-right font-medium">Redeem Principal (XPH)</th><th class="py-2 px-4 text-right font-medium">Claim Interest (XPH)</th><th class="py-2 px-4 text-right font-medium">Actions</th></tr></thead><tbody>${tbody}</tbody></table>`);
-}
-async function txBondInterest(addr,idx){await sendTx(addr,enc('0x2eb375ea',['uint256'],[idx]),'Claim Interest');}
-async function txBondClaim(addr,idx){await sendTx(addr,enc('0x4458a14c',['address','uint256','bool'],[userAddr,idx,false]),'Claim');}
-async function txEnergyPrincipal(idx){await sendTx(ENERGY_ADDR,enc('0xd9f0f7f5',['uint256'],[idx]),'Claim Principal');}
-async function txEnergyInterest(idx,amtStr){await sendTx(ENERGY_ADDR,enc('0xd286f3cf',['uint256','uint256'],[idx,amtStr]),'Claim Interest');}
-async function sendTx(to,data,label){
-if(!signer){toast('Please connect wallet first','err');return;}
-try{
-toast(label+': Waiting for confirmation...','info');
-const tx=await signer.sendTransaction({to,data,gasLimit:ethers.BigNumber.from(300000)});
-toast(label+': Tx sent, confirming...','info');
-await tx.wait();
-toast('✓ '+label+' success!','ok');
-setTimeout(loadAllData,1500);
-}catch(e){toast('✗ '+label+' failed: '+(e?.reason||e?.message||'').slice(0,60),'err');}
-}
-function mkCard(label,addr,key){
-const d=document.createElement('div');
-d.className='bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden fade-in';
-d.innerHTML=`<div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100"><div class="flex items-center gap-2"><span class="font-semibold text-sm">${label}</span><span class="text-xs text-gray-400 font-mono">${addr.slice(0,6)}…${addr.slice(-4)}</span></div><svg id="sp-${key}" class="spin w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" opacity="0.3"/><path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><div id="bd-${key}" class="py-3 text-center text-sm text-gray-400">Loading...</div>`;
-return d;
-}
-function setBody(key,html){const sp=document.getElementById('sp-'+key);const bd=document.getElementById('bd-'+key);if(sp)sp.style.display='none';if(bd){bd.className='';bd.innerHTML=html;}}
-function emptyRow(msg,isErr=false){return `<p class="py-5 text-center text-sm ${isErr?'text-red-400':'text-gray-400'}">${msg}</p>`;}
-function fmt(v){try{const n=parseFloat(ethers.utils.formatUnits(v,9));return n.toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:6});}catch{return '—';}}
 let toastTimer;
-function toast(msg,type='info'){const el=document.getElementById('toast');const cls={ok:'bg-emerald-500',err:'bg-red-500',info:'bg-indigo-500'};el.textContent=msg;el.style.background='';el.className=`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm text-white font-medium shadow-2xl z-50 transition-all duration-300 whitespace-nowrap ${cls[type]||cls.info}`;el.style.opacity='1';clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.style.opacity='0';},4500);}
-window.addEventListener('load',async()=>{const okx=window.okxwallet||window.ethereum;if(!okx)return;try{const accs=await okx.request({method:'eth_accounts'});if(accs.length)connectWallet();}catch{}});
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  const cls = { ok:'bg-emerald-500', err:'bg-red-500', info:'bg-indigo-500' };
+  el.textContent = msg;
+  el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm text-white font-medium shadow-2xl z-50 transition-all duration-300 whitespace-nowrap ${cls[type] || cls.info}`;
+  el.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 4000);
+}
+
+// ===================== 连接钱包 =====================
+async function connectWallet() {
+  const okx = window.okxwallet || window.ethereum;
+  if (!okx) { toast('请先安装 OKX 钱包', 'err'); return; }
+  try {
+    provider = new ethers.providers.Web3Provider(okx, 'any');
+    await provider.send('eth_requestAccounts', []);
+    try {
+      await okx.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: POLYGON_ID }] });
+    } catch (e) {
+      if (e.code === 4902) {
+        await okx.request({ method: 'wallet_addEthereumChain', params: [{
+          chainId: POLYGON_ID, chainName: 'Polygon Mainnet',
+          nativeCurrency: { name:'MATIC', symbol:'MATIC', decimals:18 },
+          rpcUrls: ['https://polygon-rpc.com', 'https://1rpc.io/matic'],
+          blockExplorerUrls: ['https://polygonscan.com']
+        }]});
+      }
+    }
+    provider = new ethers.providers.Web3Provider(okx, 'any');
+    signer = provider.getSigner();
+    userAddr = await signer.getAddress();
+    document.getElementById('addrLabel').textContent = userAddr.slice(0,6) + '...' + userAddr.slice(-4);
+    document.getElementById('addrLabel').classList.remove('hidden');
+    document.getElementById('netBadge').classList.remove('hidden');
+    const btn = document.getElementById('connectBtn');
+    btn.textContent = '已连接';
+    btn.disabled = true;
+    btn.className = btn.className.replace('bg-indigo-600 hover:bg-indigo-700', 'bg-gray-300 cursor-default');
+    document.getElementById('noWallet').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('fullAddr').textContent = userAddr;
+    okx.on('accountsChanged', () => location.reload());
+    okx.on('chainChanged', () => location.reload());
+    await scanAll();
+  } catch (e) {
+    toast('连接失败：' + (e.message || e), 'err');
+  }
+}
+
+// ===================== 扫描所有类别 =====================
+async function scanAll() {
+  if (scanning) return;
+  scanning = true;
+  document.getElementById('refreshIcon').classList.add('spin');
+  document.getElementById('scanStatus').textContent = '扫描中…';
+  scanData = {};
+  for (const k of Object.keys(CAT_META)) scanData[k] = [];
+
+  const rp = provider;
+  const rc = (to, data) => rp.call({ to, data });
+
+  try {
+    // ----- Bond360/600: getBondInfoData 一次拿列表 + sxphId，pendingPayoutFor 拿本金 -----
+    const bondAbi = ['function getBondInfoData(address) view returns (tuple(address owner,uint256 id,uint256 payout,uint256 vesting,uint256 lastBlock,uint256 pricePaid,uint256 sxphId,uint256 reserved)[])'];
+    for (const [bondAddr, priKey, intKey] of [[BOND360, 'bond360_pri', 'bond360_int'], [BOND600, 'bond600_pri', 'bond600_int']]) {
+      try {
+        const c = new ethers.Contract(bondAddr, bondAbi, rp);
+        const bonds = await c.getBondInfoData(userAddr);
+        for (let i = 0; i < bonds.length; i++) {
+          // 本金
+          const payoutRaw = await rc(bondAddr, enc('0xeffffce1', ['address','uint256','bool'], [userAddr, i, false]));
+          const principal = ethers.BigNumber.from(payoutRaw);
+          scanData[priKey].push({
+            idx: i,
+            amount: principal,
+            calldata: enc('0x4458a14c', ['address','uint256','bool'], [userAddr, i, false]),
+            contract: bondAddr,
+          });
+          // 奖励（爆快）：sXPH.pending(sxphId) - bond.payout
+          //   注意：bonds[i].payout 是合约里固定的"总应得 payout"，sxphId 累积超出此值的部分就是奖励
+          let interest = ethers.BigNumber.from(0);
+          try {
+            const sxphId = bonds[i].sxphId;
+            // sxphId 是 uint256，sXPH.pending 接 bytes32，左填充
+            const id32 = ethers.utils.hexZeroPad(ethers.BigNumber.from(sxphId).toHexString(), 32);
+            const pendRaw = await rc(SXPH, '0x7965d56d' + id32.slice(2));
+            const total = ethers.BigNumber.from(pendRaw);
+            const payout = bonds[i].payout;
+            if (total.gt(payout)) interest = total.sub(payout);
+          } catch {}
+          scanData[intKey].push({
+            idx: i,
+            amount: interest,
+            calldata: enc('0x2eb375ea', ['uint256'], [i]),
+            contract: bondAddr,
+          });
+        }
+      } catch (e) {
+        log(`<span class="text-red-500">[Bond ${bondAddr.slice(0,6)}] 扫描失败：${(e.message||e).toString().slice(0,80)}</span>`);
+      }
+    }
+
+    // ----- Energy: count + getPrincipal + getEnergyRecs（claimedAmount, id）+ sXPH.pending -----
+    try {
+      const countRaw = await rc(ENERGY, enc('0x98dc8dea', ['address'], [userAddr]));
+      const count = ethers.BigNumber.from(countRaw).toNumber();
+      for (let off = 0; off < count; off += 10) {
+        const lim = Math.min(10, count - off);
+        const raw = await rc(ENERGY, enc('0x297a52d2', ['address','uint256','uint256'], [userAddr, off, lim]));
+        // 跳过 array header (offset + length) = 2 * 32 字节
+        const body = raw.slice(2 + 64 + 64);
+        for (let i = 0; i < lim; i++) {
+          const slot = body.slice(i*512, (i+1)*512); // 每条 8 个字段 = 256 hex chars
+          const claimed = ethers.BigNumber.from('0x' + slot.slice(0, 64));
+          const id = '0x' + slot.slice(64, 128);
+          const idx = off + i;
+          const principalRaw = await rc(ENERGY, enc('0xda709204', ['address','uint256'], [userAddr, idx]));
+          const principal = ethers.BigNumber.from(principalRaw);
+          const pendRaw = await rc(SXPH, '0x7965d56d' + id.slice(2));
+          const total = ethers.BigNumber.from(pendRaw);
+          const interest = total.gt(claimed) ? total.sub(claimed) : ethers.BigNumber.from(0);
+          scanData.energy_pri.push({
+            idx, amount: principal,
+            calldata: enc('0xd9f0f7f5', ['uint256'], [idx]),
+            contract: ENERGY,
+          });
+          scanData.energy_int.push({
+            idx, amount: interest,
+            calldata: enc('0xd286f3cf', ['uint256','uint256'], [idx, interest.toString()]),
+            contract: ENERGY,
+          });
+        }
+      }
+    } catch (e) {
+      log(`<span class="text-red-500">[Energy] 扫描失败：${(e.message||e).toString().slice(0,80)}</span>`);
+    }
+
+    // ----- Stk360/600: count + getPrincipal + extra + record(principal,id) + sXPH.pending -----
+    for (const [stkAddr, priKey, burstKey, extKey] of [
+      [STK360, 'stk360_pri', 'stk360_burst', 'stk360_ext'],
+      [STK600, 'stk600_pri', 'stk600_burst', 'stk600_ext'],
+    ]) {
+      try {
+        const countRaw = await rc(stkAddr, enc('0x98dc8dea', ['address'], [userAddr]));
+        const count = ethers.BigNumber.from(countRaw).toNumber();
+        for (let i = 0; i < count; i++) {
+          const principalRaw = await rc(stkAddr, enc('0xda709204', ['address','uint256'], [userAddr, i]));
+          const principal = ethers.BigNumber.from(principalRaw);
+          const extraRaw = await rc(stkAddr, enc('0xb01d3563', ['address','uint256'], [userAddr, i]));
+          const extra = ethers.BigNumber.from(extraRaw);
+          const recRaw = await rc(stkAddr, enc('0x584b62a1', ['address','uint256'], [userAddr, i]));
+          const b = recRaw.slice(2);
+          const stakePrincipal = ethers.BigNumber.from('0x' + b.slice(0, 64));
+          const id = '0x' + b.slice(64, 128);
+          const pendRaw = await rc(SXPH, '0x7965d56d' + id.slice(2));
+          const total = ethers.BigNumber.from(pendRaw);
+          const burst = total.gt(stakePrincipal) ? total.sub(stakePrincipal) : ethers.BigNumber.from(0);
+          scanData[priKey].push({
+            idx: i, amount: principal,
+            calldata: enc('0xd9f0f7f5', ['uint256'], [i]),
+            contract: stkAddr,
+          });
+          scanData[burstKey].push({
+            idx: i, amount: burst,
+            calldata: enc('0xd286f3cf', ['uint256','uint256'], [i, burst.toString()]),
+            contract: stkAddr,
+          });
+          scanData[extKey].push({
+            idx: i, amount: extra,
+            calldata: enc('0x3829cab1', ['uint256','uint256'], [i, extra.toString()]),
+            contract: stkAddr,
+          });
+        }
+      } catch (e) {
+        log(`<span class="text-red-500">[Stk ${stkAddr.slice(0,6)}] 扫描失败：${(e.message||e).toString().slice(0,80)}</span>`);
+      }
+    }
+
+    renderSummary();
+    document.getElementById('scanStatus').textContent = '扫描完成 · ' + new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  } catch (e) {
+    toast('扫描出错：' + (e.message || e), 'err');
+  } finally {
+    scanning = false;
+    document.getElementById('refreshIcon').classList.remove('spin');
+  }
+}
+
+// ===================== 汇总渲染 =====================
+function renderSummary() {
+  const tbody = document.getElementById('sumTbody');
+  const rows = [];
+  for (const k of Object.keys(CAT_META)) {
+    const items = scanData[k] || [];
+    const nz = items.filter(it => it.amount.gte(MIN_THRESH));
+    const total = items.reduce((s, it) => s.add(it.amount), ethers.BigNumber.from(0));
+    rows.push(`<tr class="hover:bg-gray-50">
+      <td class="py-2 px-4">${CAT_META[k].label}</td>
+      <td class="py-2 px-4 text-right text-gray-500">${items.length}</td>
+      <td class="py-2 px-4 text-right">${nz.length > 0 ? `<span class="pill pill-ok">${nz.length}</span>` : `<span class="pill pill-zero">0</span>`}</td>
+      <td class="py-2 px-4 text-right font-mono ${total.gt(0) ? 'text-indigo-600 font-semibold' : 'text-gray-400'}">${fmt(total)}</td>
+    </tr>`);
+  }
+  tbody.innerHTML = rows.join('');
+  // 更新每个按钮下面的小提示
+  updateBtnSummaries();
+}
+
+function updateBtnSummaries() {
+  const groups = {
+    mod1_bond_int:  ['bond360_int','bond600_int'],
+    mod1_stk_extra: ['stk360_ext','stk600_ext'],
+    mod2_bond360:   ['bond360_pri'],
+    mod2_bond600:   ['bond600_pri'],
+    mod2_energy:    ['energy_pri','energy_int'],
+    mod2_stk360:    ['stk360_pri','stk360_burst'],
+    mod2_stk600:    ['stk600_pri','stk600_burst'],
+  };
+  for (const [gid, cats] of Object.entries(groups)) {
+    const items = cats.flatMap(c => (scanData[c]||[]).filter(it => it.amount.gte(MIN_THRESH)));
+    const total = items.reduce((s, it) => s.add(it.amount), ethers.BigNumber.from(0));
+    const span = document.querySelector(`[data-summary="${gid}"]`);
+    if (span) {
+      span.textContent = items.length > 0
+        ? `待领 ${items.length} 笔，合计 ${fmt(total)} XPH`
+        : '当前无可领';
+    }
+  }
+}
+
+// ===================== 一键领取 =====================
+async function claimGroup(gid, cats) {
+  if (claiming) { toast('已有领取任务进行中', 'err'); return; }
+  if (scanning) { toast('正在扫描，请稍候', 'err'); return; }
+  if (!signer)  { toast('请先连接钱包', 'err'); return; }
+
+  // 重新扫描确保新鲜
+  await scanAll();
+
+  const items = [];
+  for (const c of cats) {
+    for (const it of (scanData[c] || [])) {
+      if (it.amount.gte(MIN_THRESH)) items.push({ ...it, cat: c });
+    }
+  }
+  if (items.length === 0) { toast('当前无可领项目', 'info'); return; }
+
+  claiming = true;
+  document.querySelectorAll('.js-mod-btn').forEach(b => b.classList.add('btn-disabled'));
+  log(`<span class="text-indigo-600 font-semibold">▶ ${gid}: 开始发送 ${items.length} 笔交易（串行）</span>`);
+
+  let okCnt = 0, failCnt = 0;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const meta = CAT_META[it.cat];
+    const tag = `[${i+1}/${items.length}] ${meta.label} idx=${it.idx} ${fmt(it.amount)} XPH`;
+    log(`<span class="text-gray-500">→ ${tag} 发送中…</span>`);
+    try {
+      const tx = await signer.sendTransaction({
+        to: it.contract,
+        data: it.calldata,
+        gasLimit: ethers.BigNumber.from(500000),
+      });
+      log(`<span class="text-blue-600">  tx: <a href="https://polygonscan.com/tx/${tx.hash}" target="_blank" class="hover:underline">${shortHash(tx.hash)}</a> 已发送，等待确认…</span>`);
+      const rcpt = await tx.wait();
+      if (rcpt.status === 1) {
+        okCnt++;
+        log(`<span class="text-emerald-600">  ✓ 成功 (block=${rcpt.blockNumber}, gasUsed=${rcpt.gasUsed.toString()})</span>`);
+      } else {
+        failCnt++;
+        log(`<span class="text-red-600">  ✗ 上链失败 (revert)</span>`);
+      }
+    } catch (e) {
+      failCnt++;
+      const msg = (e?.reason || e?.data?.message || e?.message || '').toString().slice(0, 100);
+      log(`<span class="text-red-600">  ✗ 失败：${msg}</span>`);
+      // 用户主动拒绝直接终止整组
+      if (msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied')) {
+        log(`<span class="text-red-600 font-semibold">⏹ 用户取消，终止剩余 ${items.length - i - 1} 笔</span>`);
+        break;
+      }
+    }
+  }
+
+  log(`<span class="text-indigo-600 font-semibold">■ ${gid} 完成 · 成功 ${okCnt} · 失败 ${failCnt}</span>`);
+  toast(`完成：成功 ${okCnt} / 失败 ${failCnt}`, failCnt > 0 ? 'err' : 'ok');
+
+  claiming = false;
+  document.querySelectorAll('.js-mod-btn').forEach(b => b.classList.remove('btn-disabled'));
+  // 完成后再扫一次，刷新数据
+  setTimeout(scanAll, 1500);
+}
+
+// ===================== 自动重连 =====================
+window.addEventListener('load', async () => {
+  const okx = window.okxwallet || window.ethereum;
+  if (!okx) return;
+  try {
+    const accs = await okx.request({ method: 'eth_accounts' });
+    if (accs && accs.length) connectWallet();
+  } catch {}
+});
 </script>
+
 </body>
 </html>
