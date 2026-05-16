@@ -445,42 +445,68 @@ async function claimGroup(gid, cats) {
 
   claiming = true;
   document.querySelectorAll('.js-mod-btn').forEach(b => b.classList.add('btn-disabled'));
-  log(`<span class="text-indigo-600 font-semibold">▶ ${gid}: 开始发送 ${items.length} 笔交易（串行）</span>`);
 
-  let okCnt = 0, failCnt = 0;
+  // 取一次 pending nonce 作为基准，每发一笔 +1，自己控制 nonce —— 不等上一笔上链
+  let baseNonce;
+  try {
+    baseNonce = await provider.getTransactionCount(userAddr, 'pending');
+  } catch (e) {
+    log(`<span class="text-red-600">取 nonce 失败：${(e.message||e).toString().slice(0,80)}</span>`);
+    claiming = false;
+    document.querySelectorAll('.js-mod-btn').forEach(b => b.classList.remove('btn-disabled'));
+    return;
+  }
+  log(`<span class="text-indigo-600 font-semibold">▶ ${gid}: 准备发送 ${items.length} 笔，nonce 从 ${baseNonce} 开始（不等确认，连续点）</span>`);
+
+  // 阶段 1：串行调 sendTransaction（OKX 一个个弹窗确认），但每笔显式 nonce、不等 tx.wait
+  const sent = []; // { item, tag, tx, nonce } | { item, tag, err, nonce }
+  let userAborted = false;
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     const meta = CAT_META[it.cat];
-    const tag = `[${i+1}/${items.length}] ${meta.label} idx=${it.idx} ${fmt(it.amount)} XPH`;
-    log(`<span class="text-gray-500">→ ${tag} 发送中…</span>`);
+    const nonce = baseNonce + i;
+    const tag = `[${i+1}/${items.length}] ${meta.label} idx=${it.idx} ${fmt(it.amount)} XPH (nonce=${nonce})`;
+    log(`<span class="text-gray-500">→ ${tag} 待签名…</span>`);
     try {
       const tx = await signer.sendTransaction({
         to: it.contract,
         data: it.calldata,
         gasLimit: ethers.BigNumber.from(500000),
+        nonce,
       });
-      log(`<span class="text-blue-600">  tx: <a href="https://polygonscan.com/tx/${tx.hash}" target="_blank" class="hover:underline">${shortHash(tx.hash)}</a> 已发送，等待确认…</span>`);
-      const rcpt = await tx.wait();
-      if (rcpt.status === 1) {
-        okCnt++;
-        log(`<span class="text-emerald-600">  ✓ 成功 (block=${rcpt.blockNumber}, gasUsed=${rcpt.gasUsed.toString()})</span>`);
-      } else {
-        failCnt++;
-        log(`<span class="text-red-600">  ✗ 上链失败 (revert)</span>`);
-      }
+      log(`<span class="text-blue-600">  tx: <a href="https://polygonscan.com/tx/${tx.hash}" target="_blank" class="hover:underline">${shortHash(tx.hash)}</a> 已广播</span>`);
+      sent.push({ item: it, tag, tx, nonce });
     } catch (e) {
-      failCnt++;
       const msg = (e?.reason || e?.data?.message || e?.message || '').toString().slice(0, 100);
-      log(`<span class="text-red-600">  ✗ 失败：${msg}</span>`);
-      // 用户主动拒绝直接终止整组
+      log(`<span class="text-red-600">  ✗ 广播失败：${msg}</span>`);
+      sent.push({ item: it, tag, err: msg, nonce });
+      // 用户拒绝 -> 整组终止（继续递增 nonce 会出现 gap，链上后续 tx 会卡住）
       if (msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied')) {
-        log(`<span class="text-red-600 font-semibold">⏹ 用户取消，终止剩余 ${items.length - i - 1} 笔</span>`);
+        log(`<span class="text-red-600 font-semibold">⏹ 用户取消（nonce=${nonce}），终止剩余 ${items.length - i - 1} 笔</span>`);
+        userAborted = true;
         break;
       }
     }
   }
 
-  log(`<span class="text-indigo-600 font-semibold">■ ${gid} 完成 · 成功 ${okCnt} · 失败 ${failCnt}</span>`);
+  // 阶段 2：所有 tx 已广播，并行 await 上链结果
+  const broadcasted = sent.filter(s => s.tx);
+  log(`<span class="text-indigo-600">⏳ ${broadcasted.length} 笔已广播，等待上链确认（并行）…</span>`);
+  const waitResults = await Promise.allSettled(broadcasted.map(s => s.tx.wait()));
+  let okCnt = 0, failCnt = sent.filter(s => s.err).length;
+  waitResults.forEach((r, i) => {
+    const s = broadcasted[i];
+    if (r.status === 'fulfilled' && r.value && r.value.status === 1) {
+      okCnt++;
+      log(`<span class="text-emerald-600">  ✓ ${s.tag} block=${r.value.blockNumber}</span>`);
+    } else {
+      failCnt++;
+      const reason = r.status === 'rejected' ? (r.reason?.message || r.reason || '').toString().slice(0,80) : 'revert';
+      log(`<span class="text-red-600">  ✗ ${s.tag} 上链失败：${reason}</span>`);
+    }
+  });
+
+  log(`<span class="text-indigo-600 font-semibold">■ ${gid} 完成 · 成功 ${okCnt} · 失败 ${failCnt}${userAborted ? ' · 已中断' : ''}</span>`);
   toast(`完成：成功 ${okCnt} / 失败 ${failCnt}`, failCnt > 0 ? 'err' : 'ok');
 
   claiming = false;
